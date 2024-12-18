@@ -1,0 +1,341 @@
+   <!DOCTYPE html>
+     <html lang="hu">
+      <head>
+      <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Digitális Névjegykártya Generátor</title>
+ <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+       <h1>Digitális Névjegykártya Generátor</h1>
+        <div id="form-container">
+               <label for="name">Név:</label>
+                <input type="text" id="name" name="name" required>
+
+           <label for="company">Cég:</label>
+            <input type="text" id="company" name="company">
+
+                 <label for="position">Pozíció:</label>
+                     <input type="text" id="position" name="position">
+
+          <label for="phoneMobile">Mobil:</label>
+           <input type="tel" id="phoneMobile" name="phoneMobile">
+
+                  <label for="phoneWork">Munkahelyi telefon:</label>
+                     <input type="tel" id="phoneWork" name="phoneWork">
+                  <label for="phonePrivate">Privát telefon:</label>
+               <input type="tel" id="phonePrivate" name="phonePrivate">
+
+                     <label for="email">E-mail:</label>
+                     <input type="email" id="email" name="email">
+               
+                  <label for="website">Weboldal:</label>
+                     <input type="url" id="website" name="website">
+ 
+                      <label for="street">Utca:</label>
+                     <input type="text" id="street" name="street">
+
+                         <label for="city">Város:</label>
+                      <input type="text" id="city" name="city">
+                      <label for="state">Megye:</label>
+                       <input type="text" id="state" name="state">
+
+                 <label for="zipcode">Irányítószám:</label>
+                  <input type="text" id="zipcode" name="zipcode">
+
+                 <label for="country">Ország:</label>
+             <input type="text" id="country" name="country">
+
+                  <label for="description">Bemutatkozás:</label>
+                  <textarea id="description" name="description"></textarea>
+
+                    <label for="profilePicture">Profilkép URL:</label>
+                      <input type="url" id="profilePicture" name="profilePicture">
+
+                   <label for="socialLinks">Közösségi média linkek (platform:url, vesszővel elválasztva):</label>
+                         <input type="text" id="socialLinks" name="socialLinks">
+                         
+                     <button id="generateButton">Generál</button>
+               <div id="previewContainer">
+                    
+               </div>
+       </div>
+          <script src="qrcode.min.js"></script>
+     <script src="social-icons.js"></script>
+     <script src="social-colors.js"></script>
+    <script src="name-utils.js"></script>
+    <script src="css-generator.js"></script>
+   <script src="main.js"></script>
+     </body>
+  </html>
+  ```
+**main.js**
+
+```javascript
+   import {generateCSS} from './css-generator.js'
+     import {socialIcons} from './social-icons.js'
+ import {socialColors} from './social-colors.js'
+import {generateHungarianMonogram, splitHungarianName} from './name-utils.js'
+
+ document.getElementById('generateButton').addEventListener('click', async function() {
+     const data = {
+       name: document.getElementById('name').value,
+       company: document.getElementById('company').value,
+       position: document.getElementById('position').value,
+       phoneMobile: document.getElementById('phoneMobile').value,
+         phoneWork: document.getElementById('phoneWork').value,
+            phonePrivate: document.getElementById('phonePrivate').value,
+       email: document.getElementById('email').value,
+         website: document.getElementById('website').value,
+        street: document.getElementById('street').value,
+        city: document.getElementById('city').value,
+       state: document.getElementById('state').value,
+        zipcode: document.getElementById('zipcode').value,
+            country: document.getElementById('country').value,
+            description: document.getElementById('description').value,
+             profilePicture: document.getElementById('profilePicture').value,
+             socialLinks: document.getElementById('socialLinks').value
+         };
+
+ const socialLinksArray = data.socialLinks ? data.socialLinks
+         .split(',')
+         .map(link => {
+              const [platform, url] = link.trim().split(':');
+            if(!socialColors[platform] || !socialIcons[platform]) return false;
+
+           return {platform: platform.trim(), url: url.trim()}
+      })
+      .filter(Boolean)
+ : [];
+
+   data.socialLinks = socialLinksArray
+
+ const generatedHTML = await generateHTML(data);
+      document.getElementById('previewContainer').innerHTML = generatedHTML
+        });
+   
+   
+   async function generateHTML(data) {
+       const { familyName, givenNames } = splitHungarianName(data.name);
+          const vcard = `BEGIN:VCARD
+VERSION:3.0
+N:${familyName};${givenNames};;;
+FN:${data.name}
+${data.company ? `ORG:${data.company}` : ''}
+${data.position ? `TITLE:${data.position}` : ''}
+${data.phoneMobile ? `TEL;TYPE=CELL:${data.phoneMobile}` : ''}
+${data.phoneWork ? `TEL;TYPE=WORK:${data.phoneWork}` : ''}
+${data.phonePrivate ? `TEL;TYPE=HOME:${data.phonePrivate}` : ''}
+${data.email ? `EMAIL:${data.email}` : ''}
+${data.website ? `URL:${data.website}` : ''}
+${data.street && data.city ? `ADR:;;${data.street};${data.city};${data.state || ''};${data.zipcode};Magyarország` : ''}
+${data.description ? `NOTE:${data.description}` : ''}
+${data.socialLinks.map(link => `URL;type=${link.platform}:${link.url}`).join('\n')}
+END:VCARD`;
+       const qrCodeDataUrl = await QRCode.toDataURL(vcard, {
+           width: 240,
+            margin: 1,
+             color: {
+               dark: '#000000',
+               light: '#ffffff'
+           }
+         });
+
+       const socialLinks = data.socialLinks
+             .map(link => {
+                 const brandColor = socialColors[link.platform];
+                 return `
+                     <a href="${link.url}"
+                        target="_blank"
+                         rel="noopener noreferrer"
+                        class="social-link"
+                        style="--brand-color: ${brandColor}"
+                        title="${link.platform}">
+                         <i class="fab fa-${link.platform.toLowerCase()}"></i>
+                     </a>
+                   `;
+             })
+             .join('');
+         return `
+      <!DOCTYPE html>
+      <html lang="hu">
+         <head>
+              <meta charset="UTF-8">
+             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+               <title>${data.name} - Digitális Névjegykártya</title>
+             <meta name="description" content="${data.description || `${data.name} digitális névjegykártyája`}">
+             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+         <link rel="preconnect" href="https://fonts.googleapis.com">
+             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+            <style>${generateCSS(data)}</style>
+        </head>
+          <body>
+             <div class="card-container">
+                 <div class="digital-card">
+                     <!-- Left Panel -->
+                     <div class="left-panel">
+                        <div class="profile-section">
+                         ${data.profilePicture
+                         ? `<img src="${data.profilePicture}" alt="${data.name}" class="profile-image">`
+                          : `<div class="profile-placeholder">
+                                 <span class="monogram">${generateHungarianMonogram(data.name) || 'MT'}</span>
+                              </div>`
+                      }
+                            <h1>${data.name}</h1>
+                         ${data.position && data.company
+                            ? `<p>${data.position} - ${data.company}</p>`
+                          : data.position || data.company
+                        ? `<p>${data.position || data.company}</p>`
+                          : ''}
+                         </div>
+
+                      <div class="contact-section">
+                             ${data.phoneMobile ? `
+                             <a href="tel:${data.phoneMobile}" class="contact-item">
+                                  <i class="fas fa-mobile-alt"></i>
+                                 <span>${data.phoneMobile}</span>
+                            </a>
+                         ` : ''}
+     
+                         ${data.phoneWork ? `
+                          <a href="tel:${data.phoneWork}" class="contact-item">
+                               <i class="fas fa-phone"></i>
+                              <span>${data.phoneWork}</span>
+                          </a>
+                          ` : ''}
+     
+                        ${data.email ? `
+                             <a href="mailto:${data.email}" class="contact-item">
+                                <i class="fas fa-envelope"></i>
+                                 <span>${data.email}</span>
+                             </a>
+                        ` : ''}
+     
+                         ${data.website ? `
+                           <a href="${data.website}" target="_blank" class="contact-item">
+                                 <i class="fas fa-globe"></i>
+                                  <span>${data.website}</span>
+                            </a>
+                          ` : ''}
+     
+                       ${(data.street || data.city) ? `
+                        <div class="contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                              <span>${[data.street, data.city, data.zipcode, data.state, data.country]
+                              .filter(Boolean)
+                                  .join(', ')}</span>
+                         </div>
+                              ` : ''}
+                     </div>
+                 </div>
+
+                   <!-- Right Panel -->
+                   <div class="right-panel">
+                     ${data.description ? `
+                       <div class="section">
+                            <h2>Bemutatkozás</h2>
+                         <p>${data.description}</p>
+                         </div>
+                       ` : ''}
+       
+                             ${data.socialLinks.length > 0 ? `
+                         <div class="section">
+                           <h2>Közösségi média</h2>
+                                <div class="social-links">
+                                    ${socialLinks}
+                                </div>
+                            </div>
+                          ` : ''}
+ 
+                        <div class="section qr-section">
+                           <h2>Névjegykártya QR kód</h2>
+                         <div class="qr-code">
+                               <img src="${qrCodeDataUrl}" alt="QR kód">
+                           </div>
+                           <p>Olvassa be a QR kódot a névjegy mentéséhez</p>
+                       </div>
+       
+                          <div class="actions">
+                             <button onclick="downloadVCard()" class="action-button primary">
+                                   <i class="fas fa-address-card"></i>
+                                    Névjegy mentése
+                              </button>
+                            <button onclick="shareCard()" class="action-button secondary">
+                                   <i class="fas fa-share-alt"></i>
+                                   Megosztás
+                              </button>
+                           </div>
+                         </div>
+                     </div>
+                </div>
+
+           <script>
+           function downloadVCard() {
+              const vcard = \`${vcard}\`;
+               const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+                  const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                        a.style.display = 'none';
+                       a.href = url;
+                          a.download = '${data.name.replace(/\\s+/g, '_')}.vcf';
+                               document.body.appendChild(a);
+                      a.click();
+                    window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+               }
+
+               async function shareCard() {
+              const shareData = {
+                      title: '${data.name} - Digitális Névjegykártya',
+                   text: '${data.name} digitális névjegykártyája',
+                    url: window.location.href
+              };
+   
+                  try {
+                       if (navigator.share) {
+                          await navigator.share(shareData);
+                      } else {
+                         await navigator.clipboard.writeText(window.location.href);
+                          alert('A névjegykártya linkje a vágólapra másolva!');
+                       }
+                     } catch (err) {
+                      console.error('Megosztás sikertelen:', err);
+                    }
+                }
+             </script>
+           </body>
+         </html>
+             `;
+   }
+  ```
+**A többi js fájlt (social-icons.js, social-colors.js, name-utils.js, css-generator.js) érintetlenül hagyhatod.**
+3.  **`qrcode.min.js` Library**
+ *  Töltsd le a qrcode javascript libraryt, és másold be a gyökér mappába.
+
+4.  **GitHub feltöltés**
+*  Hozd létre GitHub-on a repodat, a fájlokat add a repodhoz, és töltsd fel őket a GitHubba. (ha nem vagy biztos benne, hogyan kell csinálni, nézd meg a korábbi verzióban leírt GitHubba való feltöltést)
+5. **GitHub Pages bekapcsolása**
+ * A GitHubon menj be a repo settings részéhez, és itt keresd meg a Pages fület.
+ *  Itt tudod a GitHub paget bekapcsolni, és a branch kiválasztásával máris él a weblapod.
+ * Az oldalt egy percen belül már el kell, hogy tudod érni a te repód nevével (`https://<felhasználóneved>.github.io/<repo-neve>`)
+*   Az oldalon ki tudod próbálni a névjegykártya generátorod!
+*   Ha valami nem tetszik, akkor tudod lokálisan módosítani, és újra commitolni a GitHub-ra, ekkor a változtatás néhány percen belül élbe lép.
+
+**Lényeges változtatások:**
+
+*   **Kliens-oldali generálás:** A HTML kód generálása a böngészőben futó JavaScript-ben történik.
+*   **Nincs szerver szükség:** Nincs szükség a háttérben futó Node.js szerverre.
+*   **GitHub Pages:** A statikus weboldalak egyszerű publikálása a GitHub Pages segítségével.
+
+**Összefoglalva:**
+
+1.  Hozd létre a `index.html`, `main.js` és  a `qrcode.min.js` fájlt a fenti kódokkal.
+2.  Másold be a `css-generator.js`, `social-colors.js`, `social-icons.js`, `name-utils.js` fájlokat is.
+3.   Töltsd fel a kódot GitHubra.
+4.  Kapcsold be a GitHub Pages-t a repo settings részben.
+
+Ezzel az eljárással létrehozhatod a digitális névjegykártya generátor webes felületét, közvetlenül a GitHub Pages-t használva. Ha bármi kérdésed van, vagy elakadsz, nyugodtan szólj!
